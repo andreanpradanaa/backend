@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-// mongodb+srv://admin:admin@intens.hh048.mongodb.net/intens?retryWrites=true&w=majority
 
 const connect = async () => {
   try {
