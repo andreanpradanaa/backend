@@ -28,4 +28,10 @@ router.put("/update/:id", (req, res) => {
     .catch((err) => res.status(400).json(`Error: ${err}`));
 });
 
+router.delete("/:id", (req, res) => {
+  User.findByIdAndDelete(req.params.id)
+    .then(() => res.json("deleted success!"))
+    .catch((err) => res.status(400).json(`Error: ${err}`));
+});
+
 module.exports = router;
