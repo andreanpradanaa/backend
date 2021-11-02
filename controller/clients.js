@@ -2,76 +2,62 @@ const express = require("express");
 const multer = require("multer");
 const router = express.Router();
 const Clients = require("../model/clients");
-const path = require("path");
+const { cloudinary } = require("./cloudinary");
 
-var storage = multer.diskStorage({
-  filename: function (req, file, callback) {
-    callback(null, Date.now() + file.originalname);
+const storage = multer.diskStorage({
+  destination: (req, file, callback) => {
+    callback(null, "./uploads/clients ");
+  },
+
+  filename: (req, file, callback) => {
+    callback(null, file.originalname);
   },
 });
-var imageFilter = function (req, file, cb) {
-  // accept image files only
-  if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
-    return cb(new Error("Only image files are allowed!"), false);
-  }
-  cb(null, true);
-};
-var uploads = multer({ storage: storage, fileFilter: imageFilter });
 
-var cloudinary = require("cloudinary");
-cloudinary.config({
-  cloud_name: "apaaja2001",
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const uploads = multer({ storage: storage });
 
-// const storage = multer.diskStorage({
-//   destination: (req, file, callback) => {
-//     callback(null, "./uploads/clients ");
-//   },
-
-//   filename: (req, file, callback) => {
-//     callback(null, file.originalname);
-//   },
+// router.get("/", (req, res) => {
+//   Clients.find()
+//     .then((client) => res.json(client))
+//     .catch((err) => res.status(400).json(`Error: ${err}`));
 // });
 
-// const uploads = multer({ storage: storage });
+router.get("/", async (req, res) => {
+  const { resources } = await cloudinary.search
+    .expression("folder:dev_setups")
+    .sort_by("public_id", "desc")
+    .max_results(30)
+    .execute();
 
-router.get("/", (req, res) => {
-  Clients.find()
-    .then((client) => res.json(client))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+  const publicIds = resources.map((file) => file.public_id);
+  res.send(publicIds);
 });
 
-router.post("/add", uploads.single("gambar"), (req, res) => {
-  cloudinary.uploader.upload(req.file.path, function (result) {
-    if (err) {
-      req.flash("error", err.message);
-      return res.redirect("back");
-    }
-    // add cloudinary url for the image to the campground object under image property
-    req.body.client.gambar = result.secure_url;
-    req.body.client.nama = req.user.nama;
-    // add author to client
-
-    Client.create(req.body.client, function (err, client) {
-      if (err) {
-        req.flash("error", err.message);
-        return res.redirect("back");
-      }
-      res.redirect("/client/" + client.id);
+router.post("/add", async (req, res) => {
+  try {
+    const fileStr = req.body.data;
+    const uploadResponse = await cloudinary.uploader.upload(fileStr, {
+      upload_preset: "dev_setups",
     });
-  });
-
-  // const newClient = new Clients({
-  //   nama: req.body.nama,
-  //   gambar: req.file.originalname,
-  // });
-  // newClient
-  //   .save()
-  //   .then(() => res.json("added succes!"))
-  //   .catch((err) => res.status(400).json(`Error: ${err}`));
+    console.log(uploadResponse);
+    res.json({ msg: "data added!" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ err: "Something went wrong" });
+  }
 });
+
+// router.post("/add", uploads.single("gambar"), (req, res) => {
+//   const newClient = new Clients({
+//     nama: req.body.nama,
+//     gambar: req.file.gambar,
+//   });
+
+//   newClient
+//     .save()
+//     .then(() => res.json("added succes!"))
+//     .catch((err) => res.status(400).json(`Error: ${err}`));
+// });
 
 router.get("/:id", (req, res) => {
   Clients.findById(req.params.id)
