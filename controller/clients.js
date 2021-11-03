@@ -1,63 +1,82 @@
 const express = require("express");
-const multer = require("multer");
 const router = express.Router();
 const Clients = require("../model/clients");
+const cloudinary = require("../utils/cloudinary");
+const upload = require("../utils/multer");
 
-const storage = multer.diskStorage({
-  destination: (req, file, callback) => {
-    callback(null, "./uploads/clients ");
-  },
-
-  filename: (req, file, callback) => {
-    callback(null, file.originalname);
-  },
+router.get("/", async (req, res) => {
+  try {
+    let client = await Clients.find();
+    res.json(client);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-const uploads = multer({ storage: storage });
-
-router.get("/", (req, res) => {
-  Clients.find()
-    .then((client) => res.json(client))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+router.get("/:id", async (req, res) => {
+  try {
+    // Find client by id
+    let client = await Clients.findById(req.params.id);
+    res.json(client);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-router.post("/add", uploads.single("gambar"), (req, res) => {
-  const newClient = new Clients({
-    nama: req.body.nama,
-    gambar: req.file.originalname,
-  });
+router.post("/add", upload.single("gambar"), async (req, res) => {
+  try {
+    // Upload image to cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path);
 
-  newClient
-    .save()
-    .then(() => res.json("added succes!"))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+    let client = new Clients({
+      nama: req.body.nama,
+      gambar: result.secure_url,
+      cloudinary_id: result.public_id,
+    });
+
+    await client.save();
+    res.json(client);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-router.get("/:id", (req, res) => {
-  Clients.findById(req.params.id)
-    .then((client) => res.json(client))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+router.put("/update/:id", upload.single("gambar"), async (req, res) => {
+  try {
+    let client = await Clients.findById(req.params.id);
+    // Delete image from cloudinary
+    await cloudinary.uploader.destroy(client.cloudinary_id);
+    // Upload image to cloudinary
+    let result;
+    if (req.file) {
+      result = await cloudinary.uploader.upload(req.file.path);
+    }
+    const data = {
+      nama: req.body.nama || client.nama,
+      gambar: result?.secure_url || client.gambar,
+      cloudinary_id: result?.public_id || client.cloudinary_id,
+    };
+    client = await Clients.findByIdAndUpdate(req.params.id, data, {
+      new: true,
+    });
+    res.json(client);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-router.put("/update/:id", uploads.single("gambar"), (req, res) => {
-  Clients.findById(req.params.id)
-    .then((client) => {
-      client.nama = req.body.nama;
-      client.gambar = req.file.originalname;
-
-      client
-        .save()
-        .then(() => res.json("updated success!"))
-        .catch((err) => res.status(400).json(`Error: ${err}`));
-    })
-
-    .catch((err) => res.status(400).json(`Error: ${err}`));
-});
-
-router.delete("/:id", (req, res) => {
-  Clients.findByIdAndDelete(req.params.id)
-    .then(() => res.json("deleted success!"))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+router.delete("/:id", async (req, res) => {
+  try {
+    // Find client by id
+    let client = await Clients.findById(req.params.id);
+    // Delete image from cloudinary
+    await cloudinary.uploader.destroy(client.cloudinary_id);
+    // Delete client from db
+    await client.remove();
+    res.json(client);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
 module.exports = router;

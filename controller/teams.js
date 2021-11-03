@@ -1,65 +1,84 @@
 const express = require("express");
-const multer = require("multer");
 const router = express.Router();
 const Teams = require("../model/teams");
-const auth = require("../middleware/auth");
+const cloudinary = require("../utils/cloudinary");
+const upload = require("../utils/multer");
 
-const storage = multer.diskStorage({
-  destination: (req, file, callback) => {
-    callback(null, "./uploads/teams");
-  },
-
-  filename: (req, file, callback) => {
-    callback(null, file.originalname);
-  },
+router.get("/", async (req, res) => {
+  try {
+    let team = await Teams.find();
+    res.json(team);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-const uploads = multer({ storage: storage });
-
-router.get("/", (req, res) => {
-  Teams.find()
-    .then((team) => res.json(team))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+router.get("/:id", async (req, res) => {
+  try {
+    // Find team by id
+    let team = await Teams.findById(req.params.id);
+    res.json(team);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-router.post("/add", uploads.single("gambar"), (req, res) => {
-  const newTeam = new Teams({
-    nama: req.body.nama,
-    jabatan: req.body.jabatan,
-    gambar: req.file.originalname,
-  });
+router.post("/add", upload.single("gambar"), async (req, res) => {
+  try {
+    // Upload image to cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path);
 
-  newTeam
-    .save()
-    .then(() => res.json("added succes!"))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+    let team = new Teams({
+      nama: req.body.nama,
+      jabatan: req.body.jabatan,
+      gambar: result.secure_url,
+      cloudinary_id: result.public_id,
+    });
+
+    await team.save();
+    res.json(team);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-router.get("/:id", (req, res) => {
-  Teams.findById(req.params.id)
-    .then((team) => res.json(team))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+router.put("/update/:id", upload.single("gambar"), async (req, res) => {
+  try {
+    let team = await Teams.findById(req.params.id);
+    // Delete image from cloudinary
+    await cloudinary.uploader.destroy(team.cloudinary_id);
+    // Upload image to cloudinary
+    let result;
+    if (req.file) {
+      result = await cloudinary.uploader.upload(req.file.path);
+    }
+    const data = {
+      nama: req.body.nama || team.nama,
+      jabatan: req.body.jabatan || team.jabatan,
+      gambar: result?.secure_url || team.gambar,
+      cloudinary_id: result?.public_id || team.cloudinary_id,
+    };
+    team = await Teams.findByIdAndUpdate(req.params.id, data, {
+      new: true,
+    });
+    res.json(team);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
-router.put("/update/:id", uploads.single("gambar"), (req, res) => {
-  Teams.findById(req.params.id)
-    .then((team) => {
-      team.nama = req.body.nama;
-      team.jabatan = req.body.jabatan;
-      team.gambar = req.file.originalname;
-
-      team
-        .save()
-        .then(() => res.json("updated success!"))
-        .catch((err) => res.status(400).json(`Error: ${err}`));
-    })
-    .catch((err) => res.status(400).json(`Error: ${err}`));
-});
-
-router.delete("/:id", (req, res) => {
-  Teams.findByIdAndDelete(req.params.id)
-    .then(() => res.json("deleted success!"))
-    .catch((err) => res.status(400).json(`Error: ${err}`));
+router.delete("/:id", async (req, res) => {
+  try {
+    // Find team by id
+    let team = await Teams.findById(req.params.id);
+    // Delete image from cloudinary
+    await cloudinary.uploader.destroy(team.cloudinary_id);
+    // Delete team from db
+    await team.remove();
+    res.json(team);
+  } catch (err) {
+    console.log(err);
+  }
 });
 
 module.exports = router;
