@@ -36,7 +36,7 @@ router.post("/add", upload.single("gambar"), async (req, res) => {
     });
 
     await team.save();
-    res.json(team);
+    res.json("Data berhasil ditambah!");
   } catch (err) {
     console.log(err);
   }
@@ -61,7 +61,7 @@ router.put("/update/:id", upload.single("gambar"), async (req, res) => {
     team = await Teams.findByIdAndUpdate(req.params.id, data, {
       new: true,
     });
-    res.json(team);
+    res.json("Data berhasil diupdate!");
   } catch (err) {
     console.log(err);
   }
@@ -75,7 +75,7 @@ router.delete("/:id", async (req, res) => {
     await cloudinary.uploader.destroy(team.cloudinary_id);
     // Delete team from db
     await team.remove();
-    res.json(team);
+    res.json("Data berhasil dihapus!");
   } catch (err) {
     console.log(err);
   }

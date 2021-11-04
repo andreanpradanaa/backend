@@ -35,7 +35,7 @@ router.post("/add", upload.single("gambar"), async (req, res) => {
     });
 
     await client.save();
-    res.json(client);
+    res.json("Data berhasil ditambah!");
   } catch (err) {
     console.log(err);
   }
@@ -59,7 +59,7 @@ router.put("/update/:id", upload.single("gambar"), async (req, res) => {
     client = await Clients.findByIdAndUpdate(req.params.id, data, {
       new: true,
     });
-    res.json(client);
+    res.json("Data berhasil diupdate!");
   } catch (err) {
     console.log(err);
   }
@@ -73,7 +73,7 @@ router.delete("/:id", async (req, res) => {
     await cloudinary.uploader.destroy(client.cloudinary_id);
     // Delete client from db
     await client.remove();
-    res.json(client);
+    res.json("Data berhasil dihapus!");
   } catch (err) {
     console.log(err);
   }
